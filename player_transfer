@@ -1,0 +1,29 @@
+SELECT * FROM transfers;
+SELECT * FROM offered_players;
+SELECT * FROM players;
+
+CREATE OR REPLACE FUNCTION delete_offer_and_null_transfer_func_trigger()
+RETURNS TRIGGER
+AS $$
+BEGIN
+	UPDATE transfers SET player_id=NULL WHERE transfers.player_id=OLD.player_id;
+	RETURN OLD;
+END $$ LANGUAGE plpgsql;
+CREATE TRIGGER delete_offer_and_null_transfer_trigger
+BEFORE DELETE ON offered_players
+FOR EACH ROW
+EXECUTE FUNCTION delete_offer_and_null_transfer_func_trigger();
+
+BEGIN;
+	INSERT INTO players(player_id,surname,age,playing_position,transfer_id)
+	SELECT 26,of_pl.surname,of_pl.age,of_pl.playing_position,transfers.transfer_id
+	FROM transfers JOIN offered_players AS of_pl ON(transfers.player_id=of_pl.player_id)
+	WHERE transfers.transfer_id=1;
+	
+	SAVEPOINT added_to_players;
+	
+	DELETE FROM offered_players WHERE player_id IN (SELECT player_id FROM transfers WHERE transfers.transfer_id=1);
+	
+	ROLLBACK TO SAVEPOINT added_to_players;
+--ROLLBACK;
+COMMIT;
